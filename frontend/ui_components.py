@@ -274,3 +274,138 @@ def create_trend_chart(months, trend_values):
     )
     
     return fig_trend
+
+
+def display_agent_analysis(agent_results):
+    """
+    Display the results from AI agent analysis
+    
+    Args:
+        agent_results: Dictionary containing agent analysis results
+    """
+    if not agent_results:
+        st.warning("⚠️ No agent analysis available. Make sure the backend API is running.")
+        return
+    
+    if not agent_results.get('ai_enabled', False):
+        st.info("🤖 AI Agents are not enabled. Set GOOGLE_API_KEY environment variable in the backend.")
+        return
+    
+    analysis = agent_results.get('analysis', {})
+    
+    # Create tabs for different agent outputs
+    tab1, tab2, tab3 = st.tabs(["🔍 Explanation", "🔮 Speculation", "💡 Recommendations"])
+    
+    with tab1:
+        st.markdown("### 🧠 Explainability Agent")
+        st.markdown("*Natural language explanation of the risk assessment*")
+        
+        explanation = analysis.get('explanation', '')
+        if explanation:
+            st.markdown(f"""
+            <div style="background-color: #f0f4f8; padding: 20px; border-radius: 10px; border-left: 4px solid #1f77b4;">
+                <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #2c3e50; font-weight: 500;">{explanation}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.warning("No explanation available")
+    
+    with tab2:
+        st.markdown("### 🔮 Speculation Agent")
+        st.markdown("*Intelligent speculation on churn reasons and customer behavior*")
+        
+        speculation = analysis.get('speculation', '')
+        if speculation:
+            st.markdown(f"""
+            <div style="background-color: #333333; padding: 20px; border-radius: 10px; border-left: 4px solid #f39c12;">
+                <p style="margin: 0; font-size: 16px; line-height: 1.6; font-weight: 600;">{speculation}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.warning("No speculation available")
+    
+    with tab3:
+        st.markdown("### 💡 Recommendation Agent")
+        st.markdown("*Actionable retention strategies and interventions*")
+        
+        recommendations = analysis.get('recommendations', [])
+        if recommendations:
+            if isinstance(recommendations, str):
+                # If recommendations is a string, display it directly
+                st.markdown(f"""
+                <div style="background-color: #f0f9f0; padding: 20px; border-radius: 10px; border-left: 4px solid #27ae60;">
+                    <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #2d5016; font-weight: 500;">{recommendations}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            elif isinstance(recommendations, list):
+                # If it's a list, display each recommendation
+                for i, rec in enumerate(recommendations, 1):
+                    st.markdown(f"""
+                    <div style="background-color: #f0f9f0; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #27ae60;">
+                        <strong style="color: #1a5e1a;">Recommendation {i}:</strong><br>
+                        <span style="color: #2d5016; font-weight: 500;">{rec}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.warning("No recommendations available")
+    
+    # Add summary metrics
+    st.markdown("---")
+    st.markdown("### 📊 Analysis Summary")
+    
+    risk_assessment = analysis.get('risk_assessment', {})
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "Risk Level",
+            risk_assessment.get('risk_category', 'Unknown'),
+            help="AI-determined risk category"
+        )
+    
+    with col2:
+        churn_prob = risk_assessment.get('churn_probability', 0)
+        st.metric(
+            "Churn Probability",
+            f"{churn_prob*100:.1f}%",
+            help="Predicted churn probability"
+        )
+    
+    with col3:
+        confidence = risk_assessment.get('confidence_level', 'Unknown')
+        st.metric(
+            "AI Confidence",
+            confidence,
+            help="Confidence level of the AI analysis"
+        )
+    
+    with col4:
+        top_factors = risk_assessment.get('top_factors', [])
+        st.metric(
+            "Key Factors",
+            len(top_factors),
+            help="Number of key risk factors identified"
+        )
+
+
+def call_and_display_agents(customer_data, feature_contributions, churn_probability, prediction):
+    """
+    Convenience function to call agents and display results
+    
+    Args:
+        customer_data: Dictionary with customer information
+        feature_contributions: List of feature impacts from SHAP analysis
+        churn_probability: Predicted churn probability
+        prediction: Binary prediction (0/1)
+    """
+    from model_operations import call_agent_analysis
+    
+    # Call the agents
+    with st.spinner("🤖 Analyzing with AI agents..."):
+        agent_results = call_agent_analysis(
+            customer_data, feature_contributions, churn_probability, prediction
+        )
+    
+    # Display the results
+    display_agent_analysis(agent_results)

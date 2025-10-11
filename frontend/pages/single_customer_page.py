@@ -14,7 +14,7 @@ from ui_components import (
     display_customer_profile, create_gauge_chart,
     create_feature_impact_chart, display_shap_analysis, 
     display_all_feature_impacts, display_recommendations,
-    display_metrics, create_trend_chart
+    display_metrics, create_trend_chart, call_and_display_agents
 )
 from styles import get_prediction_box_html
 
@@ -109,6 +109,55 @@ def show(model, X_processed, y, feature_cols, explainer, label_encoders, X_origi
         
         # Display recommendations
         display_recommendations(probability)
+    
+    # AI Agent Analysis Section
+    st.markdown("---")
+    st.markdown("## 🤖 AI Agent Analysis")
+    st.markdown("""
+    **Advanced AI Insights**: Our AI agents analyze the prediction using cutting-edge language models 
+    to provide deeper insights, speculation on churn reasons, and actionable recommendations.
+    """)
+    
+    # Prepare customer data for agents
+    customer_data_for_agents = {
+        'customer_id': customer_id,
+        'days_tenure': 365,  # Default values - you can extract from sample_customer if available
+        'curr_ann_amt': 1500,
+        'age_in_years': 35,
+        'income_filled': 50000,
+        'has_children': 0,
+        'home_owner': 0,
+        'college_degree': 0,
+        'good_credit': 1,
+        'is_married': 0,
+        'length_of_residence_filled': 5
+    }
+    
+    # Try to extract actual values from sample_customer if possible
+    try:
+        # This is a simplified extraction - you might need to adjust based on your data structure
+        if hasattr(sample_customer, 'iloc') and len(sample_customer) > 0:
+            # Try to get some common fields
+            for col in sample_customer.columns:
+                col_lower = col.lower()
+                if 'tenure' in col_lower or 'days' in col_lower:
+                    customer_data_for_agents['days_tenure'] = float(sample_customer.iloc[0][col])
+                elif 'age' in col_lower:
+                    customer_data_for_agents['age_in_years'] = float(sample_customer.iloc[0][col])
+                elif 'income' in col_lower:
+                    customer_data_for_agents['income_filled'] = float(sample_customer.iloc[0][col])
+                elif 'premium' in col_lower or 'amount' in col_lower:
+                    customer_data_for_agents['curr_ann_amt'] = float(sample_customer.iloc[0][col])
+    except Exception:
+        pass  # Use default values if extraction fails
+    
+    # Call and display agent analysis
+    call_and_display_agents(
+        customer_data_for_agents, 
+        feature_contributions,  # Use feature_contributions instead of features_dict
+        float(probability),  # Ensure it's a Python float
+        int(prediction)  # Ensure it's a Python int
+    )
     
     # What-If Scenario Planner
     st.markdown("---")

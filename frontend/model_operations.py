@@ -137,3 +137,106 @@ def get_important_features():
         'tenure', 'age', 'premium', 'claims_count', 'months_since_last_claim',
         'credit_score', 'annual_mileage', 'vehicle_year', 'vehicle_value', 'education_level'
     ]
+
+
+def call_agent_analysis(customer_data, feature_contributions, churn_probability, prediction):
+    """
+    Call the backend API to analyze customer with AI agents
+    
+    Args:
+        customer_data: Dictionary with customer information
+        feature_contributions: List of feature impacts from SHAP analysis
+        churn_probability: Predicted churn probability
+        prediction: Binary prediction (0/1)
+    
+    Returns:
+        Dictionary with agent analysis results
+    """
+    import requests
+    import streamlit as st
+    
+    # Backend API URL
+    API_URL = "http://localhost:8001/api/analyze-with-agents"
+    
+    try:
+        # Prepare features_dict for API (convert feature_contributions to the expected format)
+        features_dict_for_api = []
+        for contrib in feature_contributions[:10]:  # Top 10 features
+            # Ensure all values are JSON serializable
+            feature_name = str(contrib['Feature'])
+            feature_value = contrib['Value']
+            shap_value = contrib['SHAP_Value']
+            
+            # Convert numpy types to Python types
+            if hasattr(feature_value, 'item'):  # numpy scalar
+                feature_value = feature_value.item()
+            if hasattr(shap_value, 'item'):  # numpy scalar
+                shap_value = shap_value.item()
+                
+            features_dict_for_api.append({
+                "Feature": feature_name,
+                "Value": float(feature_value),  # Convert to Python float
+                "SHAP_Value": float(shap_value),  # Convert to Python float
+                "Impact": "increases churn risk" if float(shap_value) > 0 else "decreases churn risk"
+            })
+        
+        # Ensure customer data values are also JSON serializable
+        customer_data_clean = {}
+        for key, value in customer_data.items():
+            if hasattr(value, 'item'):  # numpy scalar
+                customer_data_clean[key] = value.item()
+            else:
+                customer_data_clean[key] = value
+        
+        # Prepare payload
+        payload = {
+            "customer_data": {
+                "customer_type": "existing",
+                "days_tenure": float(customer_data_clean.get('days_tenure', 365)),
+                "curr_ann_amt": float(customer_data_clean.get('curr_ann_amt', 1500)),
+                "age_in_years": float(customer_data_clean.get('age_in_years', 35)),
+                "income_filled": float(customer_data_clean.get('income_filled', 50000)),
+                "has_children": int(customer_data_clean.get('has_children', 0)),
+                "home_owner": int(customer_data_clean.get('home_owner', 0)),
+                "college_degree": int(customer_data_clean.get('college_degree', 0)),
+                "good_credit": int(customer_data_clean.get('good_credit', 1)),
+                "is_married": int(customer_data_clean.get('is_married', 0)),
+                "length_of_residence_filled": float(customer_data_clean.get('length_of_residence_filled', 5))
+            },
+            "features_dict": features_dict_for_api,
+            "churn_probability": float(churn_probability),
+            "prediction": int(prediction)
+        }
+        
+        # Make API call
+        response = requests.post(API_URL, json=payload, timeout=60)  # Increased timeout for AI agents
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            st.warning(f"API call failed with status {response.status_code}: {response.text}")
+            return None
+            
+    except requests.exceptions.ConnectionError:
+        st.warning("⚠️ Backend API not available. Start the backend server with: `cd backend && python main.py`")
+        return None
+    except requests.exceptions.Timeout:
+        st.warning("⚠️ API call timed out. The agents may be processing...")
+        return None
+    except TypeError as e:
+        if "JSON serializable" in str(e):
+            st.error(f"❌ Data serialization error: {str(e)}")
+            st.info("Debug info: Check that all feature values are proper Python types, not numpy types")
+        else:
+            st.error(f"❌ Type error: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Error calling agent analysis: {str(e)}")
+        # Add some debug information
+        st.info("Debug information:")
+        st.write("Payload structure:", {
+            "customer_data_keys": list(payload.get("customer_data", {}).keys()) if 'payload' in locals() else "Not created",
+            "features_count": len(payload.get("features_dict", [])) if 'payload' in locals() else "Not created",
+            "churn_probability_type": type(payload.get("churn_probability")) if 'payload' in locals() else "Not created"
+        })
+        return None
