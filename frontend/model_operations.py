@@ -8,16 +8,23 @@ import numpy as np
 import joblib
 import shap
 from sklearn.preprocessing import LabelEncoder
+import os
 
 @st.cache_resource
 def load_model_and_data():
     """Load the trained model and process data"""
     try:
-        # Load the XGBoost model
-        model = joblib.load('xgboost_churn_model.pkl')
+        # Get the directory of this script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
         
-        # Load the data
-        autoinsurance_df = pd.read_csv('archive/autoinsurance_churn.csv')
+        # Load the XGBoost model
+        model_path = os.path.join(script_dir, 'xgboost_churn_model.pkl')
+        model = joblib.load(model_path)
+        
+        # Load the data from root/data folder
+        data_path = os.path.join(project_root, 'data', 'autoinsurance_churn.csv')
+        autoinsurance_df = pd.read_csv(data_path)
         
         # Define columns to exclude
         cols_to_drop = ['individual_id', 'address_id', 'date_of_birth', 'cust_orig_date', 'acct_suspd_date', 'Churn']
