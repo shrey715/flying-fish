@@ -47,6 +47,22 @@ class CustomerInput(BaseModel):
     good_credit: int = Field(0, ge=0, le=1, description="Good credit (0/1)")
     is_married: int = Field(0, ge=0, le=1, description="Married (0/1)")
     length_of_residence_filled: float = Field(0, description="Length of residence")
+
+
+class FeatureImpact(BaseModel):
+    """Feature impact data model"""
+    Feature: str = Field(..., description="Feature name")
+    Value: float = Field(..., description="Feature value")
+    SHAP_Value: float = Field(..., description="SHAP value for the feature")
+    Impact: str = Field(..., description="Impact description")
+
+
+class AgentAnalysisInput(BaseModel):
+    """Input model for agent analysis"""
+    customer_data: CustomerInput = Field(..., description="Customer data")
+    features_dict: List[FeatureImpact] = Field(..., description="Feature impacts from SHAP analysis")
+    churn_probability: float = Field(..., description="Predicted churn probability")
+    prediction: int = Field(..., description="Binary prediction (0/1)")
     
     class Config:
         json_schema_extra = {
@@ -163,7 +179,7 @@ async def predict_churn(customer: CustomerInput):
     
     try:
         # Convert to dict
-        customer_data = customer.dict()
+        customer_data = customer.model_dump()
         
         # Process through workflow
         result = await workflow.process(customer_data)
@@ -189,7 +205,7 @@ async def batch_predict(customers: List[CustomerInput]):
     try:
         results = []
         for customer in customers:
-            result = await workflow.process(customer.dict())
+            result = await workflow.process(customer.model_dump())
             results.append(result)
         
         return {
@@ -205,6 +221,107 @@ async def batch_predict(customers: List[CustomerInput]):
         )
 
 
+@app.post("/api/analyze-with-agents")
+async def analyze_with_agents(analysis_input: AgentAnalysisInput):
+    """Analyze customer with AI agents using features_dict from frontend"""
+    if workflow is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Workflow not initialized. Please ensure model files are available."
+        )
+    
+    try:
+        print(f"📥 Received agent analysis request")
+        
+        # Extract data
+        customer_data = analysis_input.customer_data.model_dump()
+        features_dict = [f.model_dump() for f in analysis_input.features_dict]
+        churn_probability = analysis_input.churn_probability
+        prediction = analysis_input.prediction
+        
+        print(f"📊 Processing customer with {len(features_dict)} features, churn_prob: {churn_probability}")
+        
+        # Prepare data for agents
+        # Convert features_dict to the format expected by agents
+        top_factors = []
+        for feature in features_dict[:5]:  # Top 5 features
+            top_factors.append({
+                'feature': feature['Feature'],
+                'value': feature['Value'],
+                'shap_value': feature['SHAP_Value'],
+                'importance': abs(feature['SHAP_Value']),  # Add importance field
+                'impact': 'increases' if feature['SHAP_Value'] > 0 else 'decreases'
+            })
+        
+        # Determine risk category
+        if churn_probability >= 0.7:
+            risk_category = "HIGH"
+        elif churn_probability >= 0.4:
+            risk_category = "MEDIUM"
+        else:
+            risk_category = "LOW"
+        
+        print(f"🎯 Risk category: {risk_category}")
+        
+        # Create assessment results in the format expected by agents
+        assessment_results = {
+            'churn_probability': churn_probability,
+            'risk_category': risk_category,
+            'confidence_level': 'High',  # You can calculate this based on model confidence
+            'top_factors': top_factors,
+            'prediction': prediction,
+            'customer_data': customer_data  # Add customer data for speculation agent
+        }
+        
+        # Process through AI agents if available
+        if workflow.ai_enabled:
+            print("🤖 Processing with AI agents...")
+            
+            # Step 1: Explainability Agent
+            print("   🧠 Running explainability agent...")
+            explained_results = workflow.explainability_agent.explain(assessment_results)
+            
+            # Step 2: Speculation Agent
+            print("   🔮 Running speculation agent...")
+            speculation_results = workflow.speculation_agent.speculate(explained_results)
+            
+            # Step 3: Recommendation Agent
+            print("   💡 Running recommendation agent...")
+            recommendation_results = workflow.recommendation_agent.recommend(speculation_results)
+            
+            print("✅ AI agents completed successfully")
+            
+            return {
+                "status": "success",
+                "ai_enabled": True,
+                "analysis": {
+                    "risk_assessment": assessment_results,
+                    "explanation": explained_results.get('explanation', ''),
+                    "speculation": speculation_results.get('speculation', ''),
+                    "recommendations": recommendation_results.get('recommendations', [])
+                }
+            }
+        else:
+            print("⚠️ AI agents not enabled")
+            return {
+                "status": "success", 
+                "ai_enabled": False,
+                "analysis": {
+                    "risk_assessment": assessment_results,
+                    "explanation": "AI agents not available - set GOOGLE_API_KEY environment variable",
+                    "speculation": "AI agents not available",
+                    "recommendations": []
+                }
+            }
+        
+    except Exception as e:
+        print(f"❌ Error in agent analysis: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Agent analysis failed: {str(e)}"
+        )
 @app.get("/api/sample-data")
 async def get_sample_data():
     """Get sample customer data for testing"""
