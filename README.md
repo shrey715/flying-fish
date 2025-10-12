@@ -84,7 +84,8 @@ Customer Data → Risk Assessment → Explainability → Speculation → Recomme
 - Generates personalized retention strategies
 - Suggests specific actions based on risk profile
 - Prioritizes interventions by impact potential
-- **Key Features**: Action-oriented advice, ROI considerations, implementation guidance
+- **Automated Email Campaigns**: Sends targeted retention emails to high-risk customers
+- **Key Features**: Action-oriented advice, ROI considerations, implementation guidance, email automation
 
 ### 🖥️ Frontend Dashboard Components
 
@@ -105,6 +106,7 @@ A sophisticated web interface with three specialized views:
 - **Risk Distribution**: Visualize customer base by risk categories
 - **Feature Importance Rankings**: Global SHAP feature significance
 - **Churn Trends**: Time-series analysis of churn patterns
+- **Regional Trend Analysis**: Geographic churn patterns and location-based risk insights
 - **Segment Analysis**: Risk breakdown by customer demographics
 - **Performance Metrics**: Model accuracy and prediction confidence
 
@@ -174,6 +176,8 @@ flying-fish/
 - Contextual business recommendations
 - Automated insight generation
 - Personalized retention strategies
+- **Regional Risk Analysis**: Location-based churn pattern identification and geographic insights
+- **Automated Email Notifications**: Triggered email campaigns for high-risk customer segments
 
 
 *Built with ❤️ for better customer retention through AI*
