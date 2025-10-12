@@ -1,0 +1,42 @@
+{
+  "roc_auc": 0.9998955187673848,
+  "average_precision": 0.9995344287809467,
+  "classification_report": {
+    "0": {
+      "precision": 0.9995208867827917,
+      "recall": 1.0,
+      "f1-score": 0.9997603859902763,
+      "support": 1487453.0
+    },
+    "1": {
+      "precision": 1.0,
+      "recall": 0.9963144074104706,
+      "f1-score": 0.9981538015375493,
+      "support": 193456.0
+    },
+    "accuracy": 0.9995758247472052,
+    "macro avg": {
+      "precision": 0.9997604433913958,
+      "recall": 0.9981572037052353,
+      "f1-score": 0.9989570937639127,
+      "support": 1680909.0
+    },
+    "weighted avg": {
+      "precision": 0.9995760279751752,
+      "recall": 0.9995758247472052,
+      "f1-score": 0.9995754840105219,
+      "support": 1680909.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      1487453,
+      0
+    ],
+    [
+      713,
+      192743
+    ]
+  ],
+  "note": "Metrics computed on training data (full dataset) - not a proper holdout evaluation."
+}
