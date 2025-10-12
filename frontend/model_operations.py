@@ -156,7 +156,7 @@ def call_agent_analysis(customer_data, feature_contributions, churn_probability,
     import streamlit as st
     
     # Backend API URL
-    API_URL = "http://localhost:8001/api/analyze-with-agents"
+    API_URL = "http://backend:8001/api/analyze-with-agents"
     
     try:
         # Prepare features_dict for API (convert feature_contributions to the expected format)
