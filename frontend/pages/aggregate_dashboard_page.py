@@ -548,7 +548,7 @@ def show(model, X_processed, y, feature_cols, explainer, X_original):
         )
         
         # Display top 50 with filters
-        st.markdown(f"### Showing top 50 of {len(high_risk_indices):,} high-risk customers")
+        st.markdown(f"### Showing top high-risk customers")
         
         # Add filters
         col1, col2 = st.columns(2)

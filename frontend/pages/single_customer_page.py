@@ -164,11 +164,11 @@ def display_customer_analysis(sample_customer, actual_churn, customer_id, model,
         st.metric("Model Confidence", f"{confidence:.1%}")
     
     # Recommendations
-    display_recommendations(probability)
+    # display_recommendations(probability)
     
     # AI Agent Analysis Section
     st.markdown("---")
-    st.markdown("## 🤖 AI Agent Analysis (Optional)")
+    st.markdown("## 🤖 AI Agent Analysis")
     st.markdown("""
     **Advanced AI Insights**: Click the button below to get AI-powered analysis including deeper insights, 
     speculation on churn reasons, and actionable recommendations.
