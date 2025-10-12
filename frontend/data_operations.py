@@ -112,7 +112,8 @@ def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, l
             min_value=0, 
             max_value=len(X_processed)-1, 
             value=123,
-            help="Select a customer by their index in the dataset"
+            help="Select a customer by their index in the dataset",
+            key="customer_index_input"
         )
         sample_customer = X_processed.iloc[customer_idx:customer_idx+1]
         actual_churn = y.iloc[customer_idx]

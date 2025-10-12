@@ -51,13 +51,15 @@ st.markdown("### 🔍 Customer Selection Mode")
 col1, col2 = st.columns(2)
 with col1:
     real_customer_btn = st.button("📊 Select Real Customer", use_container_width=True, 
-                                type="primary" if st.session_state.get('customer_mode', 'Select Real Customer') == 'Select Real Customer' else "secondary")
+                                type="primary" if st.session_state.get('customer_mode', 'Select Real Customer') == 'Select Real Customer' else "secondary",
+                                key="app_real_customer_btn")
     if real_customer_btn:
         st.session_state.customer_mode = 'Select Real Customer'
 
 with col2:
     custom_features_btn = st.button("⚙️ Custom Feature Selection", use_container_width=True,
-                                  type="primary" if st.session_state.get('customer_mode', 'Select Real Customer') == 'Custom Feature Selection' else "secondary")
+                                  type="primary" if st.session_state.get('customer_mode', 'Select Real Customer') == 'Custom Feature Selection' else "secondary",
+                                  key="app_custom_features_btn")
     if custom_features_btn:
         st.session_state.customer_mode = 'Custom Feature Selection'
 

@@ -45,18 +45,23 @@ def show(model, X_processed, y, feature_cols, explainer, label_encoders, X_origi
             'Select Real Customer', X_processed, y, feature_cols, X_original, label_encoders
         )
         
+        # Process and display results for this tab
+        if sample_customer is not None:
+            display_customer_analysis(sample_customer, actual_churn, customer_id, model, explainer, feature_cols, X_original)
+        
     with tab2:
         st.markdown("Create a custom customer profile by adjusting key features.")
         # Get customer data for custom feature selection
         sample_customer, actual_churn, customer_id = get_customer_by_mode(
             'Custom Feature Selection', X_processed, y, feature_cols, X_original, label_encoders
         )
-    
-    # Only proceed if we have customer data
-    if sample_customer is None:
-        st.stop()
-    
-    st.markdown("---")
+        
+        # Process and display results for this tab  
+        if sample_customer is not None:
+            display_customer_analysis(sample_customer, actual_churn, customer_id, model, explainer, feature_cols, X_original)
+
+def display_customer_analysis(sample_customer, actual_churn, customer_id, model, explainer, feature_cols, X_original):
+    """Display the customer analysis results"""
     
     # Make prediction using the real model
     prediction, probability = make_prediction(model, sample_customer)
@@ -265,7 +270,8 @@ def display_whatif_planner(model, sample_customer, X_original, feature_cols,
         "Choose scenario type:",
         ["Custom Adjustments", "Pre-defined Scenarios", "Goal-Seeking"],
         horizontal=True,
-        help="Select how you want to adjust the customer features"
+        help="Select how you want to adjust the customer features",
+        key=f"scenario_type_radio_{id(sample_customer)}"
     )
     
     if scenario_type == "Custom Adjustments":
@@ -540,13 +546,14 @@ def display_predefined_scenarios(model, modified_customer, actionable_features,
     selected_scenario = st.selectbox(
         "Select a scenario to simulate:",
         list(scenarios.keys()),
-        help="Choose a pre-defined retention strategy"
+        help="Choose a pre-defined retention strategy",
+        key=f"predefined_scenario_select_{id(modified_customer)}"
     )
     
     st.info(f"**Strategy**: {scenarios[selected_scenario]['description']}")
     
     # Apply scenario
-    if st.button("🚀 Run Scenario", type="primary"):
+    if st.button("🚀 Run Scenario", type="primary", key=f"run_scenario_btn_{id(modified_customer)}"):
         adjustments = scenarios[selected_scenario]['adjustments']
         
         if not adjustments:
@@ -625,7 +632,8 @@ def display_goal_seeking(model, modified_customer, actionable_features,
             max_value=100.0,
             value=max(0.0, (baseline_probability - 0.2) * 100),
             step=5.0,
-            help="Set your desired churn risk level"
+            help="Set your desired churn risk level",
+            key="target_risk_slider"
         ) / 100
     
     with col2:
@@ -639,10 +647,11 @@ def display_goal_seeking(model, modified_customer, actionable_features,
     intervention_feature = st.selectbox(
         "Primary Intervention Feature:",
         [f['name'] for f in actionable_features],
-        help="Select the main feature you want to adjust"
+        help="Select the main feature you want to adjust",
+        key=f"intervention_feature_select_{id(modified_customer)}"
     )
     
-    if st.button("🔍 Calculate Required Change", type="primary"):
+    if st.button("🔍 Calculate Required Change", type="primary", key=f"calculate_change_btn_{id(modified_customer)}"):
         # Find the required change through binary search
         feature_data = next(f for f in actionable_features if f['name'] == intervention_feature)
         

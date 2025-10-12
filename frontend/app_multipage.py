@@ -140,21 +140,24 @@ if 'page' not in st.session_state:
 col1, col2, col3 = st.columns(3)
 with col1:
     overview_btn = st.button("🏠 Overview", use_container_width=True, 
-                           type="primary" if st.session_state.page == '🏠 Overview' else "secondary")
+                           type="primary" if st.session_state.page == '🏠 Overview' else "secondary",
+                           key="nav_overview_btn")
     if overview_btn:
         st.session_state.page = '🏠 Overview'
         st.rerun()
 
 with col2:
     customer_btn = st.button("👤 Customer Analysis", use_container_width=True, 
-                           type="primary" if st.session_state.page == '👤 Customer Analysis' else "secondary")
+                           type="primary" if st.session_state.page == '👤 Customer Analysis' else "secondary",
+                           key="nav_customer_btn")
     if customer_btn:
         st.session_state.page = '👤 Customer Analysis'
         st.rerun()
 
 with col3:
     trends_btn = st.button("📊 Aggregate Trends Dashboard", use_container_width=True, 
-                          type="primary" if st.session_state.page == '📊 Aggregate Trends Dashboard' else "secondary")
+                          type="primary" if st.session_state.page == '📊 Aggregate Trends Dashboard' else "secondary",
+                          key="nav_trends_btn")
     if trends_btn:
         st.session_state.page = '📊 Aggregate Trends Dashboard'
         st.rerun()
