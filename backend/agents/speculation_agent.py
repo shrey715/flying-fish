@@ -18,8 +18,8 @@ class SpeculationAgent:
         
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
-            google_api_key=api_key,
-            temperature=0.8  # Higher temperature for creative speculation
+            api_key=api_key,
+            temperature=0.5,  # Balanced for speed and creativity
         )
         
         self.speculation_template = PromptTemplate(
@@ -54,12 +54,12 @@ Be insightful, creative, but grounded in the customer data."""
         
         print("✅ Speculation Agent initialized")
     
-    def speculate(self, explained_results: Dict[str, Any]) -> Dict[str, Any]:
+    def speculate(self, assessment_results: Dict[str, Any]) -> Dict[str, Any]:
         """
         Speculate on reasons for customer churn
         
         Args:
-            explained_results: Output from Explainability Agent
+            assessment_results: Output from Risk Assessment Agent (works independently now)
             
         Returns:
             Dictionary with speculation insights
@@ -67,13 +67,13 @@ Be insightful, creative, but grounded in the customer data."""
         # Format key factors
         factors_text = "\n".join([
             f"- {f['feature']}: {f['impact']} risk by {abs(f['shap_value']):.3f}"
-            for f in explained_results['top_factors'][:3]
+            for f in assessment_results['top_factors'][:3]
         ])
         
         # Generate speculation
         prompt = self.speculation_template.format(
-            customer_profile=explained_results['customer_data'],
-            risk_level=explained_results['risk_category'],
+            customer_profile=assessment_results['customer_data'],
+            risk_level=assessment_results['risk_category'],
             key_factors=factors_text
         )
         
@@ -83,12 +83,11 @@ Be insightful, creative, but grounded in the customer data."""
         # Parse speculation into structured format
         speculations = self._parse_speculation(speculation_text)
         
-        # Add to results
-        result = explained_results.copy()
-        result['speculation'] = speculation_text
-        result['speculation_items'] = speculations
-        
-        return result
+        # Return only speculation-specific data (no copying entire result)
+        return {
+            'speculation': speculation_text,
+            'speculation_items': speculations
+        }
     
     def _parse_speculation(self, text: str) -> list:
         """Parse speculation text into structured items"""

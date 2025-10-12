@@ -103,7 +103,7 @@ def load_sample_customers():
     }
     return customers
 
-def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, label_encoders):
+def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, label_encoders, key_prefix=""):
     """Get customer data based on input mode selection"""
     if input_mode == "Select Real Customer":
         # Let user select by index
@@ -113,7 +113,7 @@ def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, l
             max_value=len(X_processed)-1, 
             value=123,
             help="Select a customer by their index in the dataset",
-            key="customer_index_input"
+            key=f"{key_prefix}_customer_index_input"
         )
         sample_customer = X_processed.iloc[customer_idx:customer_idx+1]
         actual_churn = y.iloc[customer_idx]
@@ -141,7 +141,7 @@ def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, l
             if feature in X_original.columns:
                 if X_original[feature].dtype == 'object':
                     unique_vals = X_original[feature].dropna().unique()[:10]  # Limit options
-                    feature_inputs[feature] = st.selectbox(f"{feature}", unique_vals, key=f"input_{feature}")
+                    feature_inputs[feature] = st.selectbox(f"{feature}", unique_vals, key=f"{key_prefix}_input_{feature}")
                 else:
                     min_val = float(X_original[feature].min())
                     max_val = float(X_original[feature].max())
@@ -151,7 +151,7 @@ def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, l
                         min_val, 
                         max_val, 
                         mean_val,
-                        key=f"input_{feature}"
+                        key=f"{key_prefix}_input_{feature}"
                     )
         
         # Create a sample customer from inputs

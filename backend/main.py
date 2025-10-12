@@ -5,10 +5,13 @@ Provides REST API endpoints for the React frontend
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import os
 import sys
+import json
+import asyncio
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -221,6 +224,91 @@ async def batch_predict(customers: List[CustomerInput]):
         )
 
 
+@app.post("/api/predict-streaming")
+async def predict_churn_streaming(customer: CustomerInput):
+    """
+    Streaming prediction endpoint - sends results as they become available
+    
+    Response format: Server-Sent Events (SSE)
+    - Event 1: risk_assessment (after ~2s)
+    - Event 2: explanation (after ~8-12s)
+    - Event 3: speculation (after ~8-12s)
+    - Event 4: recommendations (after ~8-12s)
+    - Event 5: complete
+    """
+    if workflow is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Workflow not initialized."
+        )
+    
+    async def event_generator():
+        try:
+            customer_data = customer.model_dump()
+            
+            # Step 1: Risk Assessment (fast)
+            print(f"📋 Processing customer: {customer_data.get('customer_id', 'Unknown')}")
+            print("   ⚙️  Step 1: Risk Assessment Agent...")
+            risk_results = workflow.risk_agent.assess_risk(customer_data)
+            
+            # Send risk results immediately
+            yield f"data: {json.dumps({'type': 'risk_assessment', 'data': risk_results})}\n\n"
+            
+            if workflow.ai_enabled:
+                print("   ⚙️  Steps 2-4: Running AI Agents in Parallel...")
+                
+                # Create tasks for parallel execution
+                explained_task = asyncio.create_task(
+                    asyncio.to_thread(workflow.explainability_agent.explain, risk_results)
+                )
+                speculated_task = asyncio.create_task(
+                    asyncio.to_thread(workflow.speculation_agent.speculate, risk_results)
+                )
+                recommended_task = asyncio.create_task(
+                    asyncio.to_thread(workflow.recommendation_agent.recommend, risk_results)
+                )
+                
+                # Wait for each to complete and stream results as they arrive
+                tasks = {
+                    'explanation': explained_task,
+                    'speculation': speculated_task,
+                    'recommendations': recommended_task
+                }
+                
+                # Stream results as they complete (don't wait for all)
+                for future in asyncio.as_completed(tasks.values()):
+                    result = await future
+                    # Find which task completed
+                    for name, task in tasks.items():
+                        if task == future:
+                            yield f"data: {json.dumps({'type': name, 'data': result})}\n\n"
+                            print(f"      → Streamed {name}")
+                            break
+            else:
+                # Fallback mode
+                fallback = workflow._create_fallback_results(risk_results)
+                yield f"data: {json.dumps({'type': 'explanation', 'data': {'explanation': fallback['explanation']}})}\n\n"
+                yield f"data: {json.dumps({'type': 'recommendations', 'data': {'recommendations': fallback['recommendations']}})}\n\n"
+            
+            # Send completion signal
+            yield f"data: {json.dumps({'type': 'complete', 'status': 'success'})}\n\n"
+            print("✅ Streaming complete!")
+            
+        except Exception as e:
+            error_msg = f"Streaming prediction failed: {str(e)}"
+            yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable buffering in nginx
+        }
+    )
+
+
 @app.post("/api/analyze-with-agents")
 async def analyze_with_agents(analysis_input: AgentAnalysisInput):
     """Analyze customer with AI agents using features_dict from frontend"""
@@ -275,19 +363,25 @@ async def analyze_with_agents(analysis_input: AgentAnalysisInput):
         
         # Process through AI agents if available
         if workflow.ai_enabled:
-            print("🤖 Processing with AI agents...")
+            print("🤖 Processing with AI agents in parallel...")
             
-            # Step 1: Explainability Agent
-            print("   🧠 Running explainability agent...")
-            explained_results = workflow.explainability_agent.explain(assessment_results)
+            # Run all agents in parallel (same optimization as main workflow)
+            explained_task = asyncio.create_task(
+                asyncio.to_thread(workflow.explainability_agent.explain, assessment_results)
+            )
+            speculated_task = asyncio.create_task(
+                asyncio.to_thread(workflow.speculation_agent.speculate, assessment_results)
+            )
+            recommended_task = asyncio.create_task(
+                asyncio.to_thread(workflow.recommendation_agent.recommend, assessment_results)
+            )
             
-            # Step 2: Speculation Agent
-            print("   🔮 Running speculation agent...")
-            speculation_results = workflow.speculation_agent.speculate(explained_results)
-            
-            # Step 3: Recommendation Agent
-            print("   💡 Running recommendation agent...")
-            recommendation_results = workflow.recommendation_agent.recommend(speculation_results)
+            # Wait for all to complete
+            explained_results, speculation_results, recommendation_results = await asyncio.gather(
+                explained_task,
+                speculated_task,
+                recommended_task
+            )
             
             print("✅ AI agents completed successfully")
             

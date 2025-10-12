@@ -94,20 +94,38 @@ class ChurnWorkflow:
         final_results = risk_results
         
         if self.ai_enabled:
-            # Step 2: Explainability
-            print("   ⚙️  Step 2: Explainability Agent...")
-            explained_results = self.explainability_agent.explain(risk_results)
-            print(f"      → Generated natural language explanation")
+            # Steps 2-4: Run AI agents in PARALLEL (major performance boost!)
+            print("   ⚙️  Steps 2-4: Running AI Agents in Parallel...")
             
-            # Step 3: Speculation
-            print("   ⚙️  Step 3: Speculation Agent...")
-            speculated_results = self.speculation_agent.speculate(explained_results)
+            import asyncio
+            
+            # Run all three agents concurrently - they all only need risk_results
+            explained_task = asyncio.create_task(
+                asyncio.to_thread(self.explainability_agent.explain, risk_results)
+            )
+            speculated_task = asyncio.create_task(
+                asyncio.to_thread(self.speculation_agent.speculate, risk_results)
+            )
+            recommended_task = asyncio.create_task(
+                asyncio.to_thread(self.recommendation_agent.recommend, risk_results)
+            )
+            
+            # Wait for all agents to complete
+            explained_results, speculated_results, recommended_results = await asyncio.gather(
+                explained_task, 
+                speculated_task,
+                recommended_task
+            )
+            
+            print(f"      → Generated explanation")
             print(f"      → Generated {len(speculated_results.get('speculation_items', []))} speculation items")
+            print(f"      → Generated {len(recommended_results.get('recommendations', []))} recommendations")
             
-            # Step 4: Recommendations
-            print("   ⚙️  Step 4: Recommendation Agent...")
-            final_results = self.recommendation_agent.recommend(speculated_results)
-            print(f"      → Generated {len(final_results.get('recommendations', []))} recommendations")
+            # Merge all results
+            final_results = risk_results.copy()
+            final_results.update(explained_results)
+            final_results.update(speculated_results)
+            final_results.update(recommended_results)
         else:
             # Use fallback explanations based on SHAP values
             print("   ⚙️  Steps 2-4: Using SHAP-based fallback explanations...")

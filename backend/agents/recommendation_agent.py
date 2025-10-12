@@ -18,8 +18,8 @@ class RecommendationAgent:
         
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
-            google_api_key=api_key,
-            temperature=0.7
+            api_key=api_key,
+            temperature=0.5,  # Lower for more focused recommendations
         )
         
         self.recommendation_template = PromptTemplate(
@@ -54,17 +54,17 @@ Format as:
 
 ---
 
-Be strategic, practical, and focused on customer retention."""
+Be concise and actionable."""
         )
         
         print("✅ Recommendation Agent initialized")
     
-    def recommend(self, speculated_results: Dict[str, Any]) -> Dict[str, Any]:
+    def recommend(self, assessment_results: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate retention recommendations
         
         Args:
-            speculated_results: Output from Speculation Agent
+            assessment_results: Output from Risk Assessment Agent (works independently now)
             
         Returns:
             Dictionary with recommendations
@@ -72,15 +72,15 @@ Be strategic, practical, and focused on customer retention."""
         # Format top factors
         factors_text = "\n".join([
             f"- {f['feature']}: {f['impact']} risk (importance: {f['importance']:.3f})"
-            for f in speculated_results['top_factors'][:3]
+            for f in assessment_results['top_factors'][:3]
         ])
         
-        # Generate recommendations
+        # Generate recommendations (no longer needs speculation - works independently)
         prompt = self.recommendation_template.format(
-            risk_level=speculated_results['risk_category'],
-            churn_prob=f"{speculated_results['churn_probability']*100:.1f}",
+            risk_level=assessment_results['risk_category'],
+            churn_prob=f"{assessment_results['churn_probability']*100:.1f}",
             top_factors=factors_text,
-            speculation=speculated_results.get('speculation', 'No speculation available')[:500]
+            speculation="Based on risk factors and customer profile"  # Generic placeholder
         )
         
         response = self.llm.invoke(prompt)
@@ -89,15 +89,14 @@ Be strategic, practical, and focused on customer retention."""
         # Parse recommendations
         recommendations = self._parse_recommendations(
             recommendations_text,
-            speculated_results['risk_category']
+            assessment_results['risk_category']
         )
         
-        # Add to results
-        result = speculated_results.copy()
-        result['recommendations'] = recommendations
-        result['recommendations_text'] = recommendations_text
-        
-        return result
+        # Return only recommendation-specific data (no copying entire result)
+        return {
+            'recommendations': recommendations,
+            'recommendations_text': recommendations_text
+        }
     
     def _parse_recommendations(self, text: str, risk_level: str) -> List[Dict[str, Any]]:
         """Parse recommendation text into structured items"""

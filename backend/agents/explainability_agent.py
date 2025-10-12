@@ -18,8 +18,8 @@ class ExplainabilityAgent:
         
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
-            google_api_key=api_key,
-            temperature=0.7
+            api_key=api_key,
+            temperature=0.2,  # Lower = faster, more deterministic
         )
         
         self.explanation_template = PromptTemplate(
@@ -70,8 +70,7 @@ Be specific, data-driven, and actionable. Use professional business language."""
         response = self.llm.invoke(prompt)
         explanation = response.content
         
-        # Add to results
-        result = assessment_results.copy()
-        result['explanation'] = explanation
-        
-        return result
+        # Return only explanation-specific data (no copying entire result)
+        return {
+            'explanation': explanation
+        }
