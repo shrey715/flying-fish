@@ -12,32 +12,12 @@
 git clone https://github.com/shrey715/flying-fish.git
 cd flying-fish
 
-# Install dependencies
-pip install -e .
-
-# Set up environment (optional - for AI agents)
-export GOOGLE_API_KEY="your_gemini_api_key"
+export GOOGLE_API_KEY="your_google_api_key_here"
 ```
 
-### Running the Applications
-
-#### 🖥️ **Dashboard (Streamlit)**
+### Download the Kaggle dataset and place it in the data/ directory. (like /data/*.csv)
 ```bash
-# Navigate to frontend
-cd frontend
-
-# Launch interactive dashboard
-streamlit run app.py
-```
-Access at: `http://localhost:8501`
-
-#### ⚡ **API Server (FastAPI)**
-```bash
-# Navigate to backend
-cd backend
-
-# Start production server
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+docker compose up
 ```
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
