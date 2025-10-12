@@ -96,23 +96,31 @@ def show(model, X_processed, y, feature_cols, explainer):
     
     fig_dist = go.Figure()
     
-    fig_dist.add_trace(go.Bar(
-        x=['Retained', 'Churned'],
-        y=[retained_customers, churned_customers],
+    fig_dist.add_trace(go.Pie(
+        labels=['Retained', 'Churned'],
+        values=[retained_customers, churned_customers],
         marker=dict(
-            color=['#4ecdc4', '#ff6b6b'],
+            colors=['#4ecdc4', '#ff6b6b'],
             line=dict(color='white', width=2)
         ),
-        text=[f'{retained_customers:,}', f'{churned_customers:,}'],
-        textposition='auto',
+        textinfo='percent',
+        textfont=dict(size=16, color='white'),
+        hovertemplate='<b>%{label}</b><br>Count: %{value:,}<br>Percentage: %{percent}<extra></extra>',
+        hole=0  # Simple pie chart, no hole
     ))
     
     fig_dist.update_layout(
         title="Customer Retention vs Churn",
-        yaxis_title="Number of Customers",
         height=400,
-        plot_bgcolor='rgba(240,242,246,0.5)',
-        showlegend=False
+        showlegend=True,
+        legend=dict(
+            orientation="v",
+            yanchor="middle",
+            y=0.5,
+            xanchor="left",
+            x=1.02
+        ),
+        margin=dict(r=150)  # Add right margin for legend
     )
     
     st.plotly_chart(fig_dist, use_container_width=True)
@@ -151,5 +159,3 @@ def show(model, X_processed, y, feature_cols, explainer):
         """)
     
     st.markdown("---")
-    
-    st.info("👈 **Get Started:** Use the navigation panel on the left to explore customer analyses and aggregate trends!")

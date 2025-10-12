@@ -14,35 +14,49 @@ from ui_components import (
     display_customer_profile, create_gauge_chart,
     create_feature_impact_chart, display_shap_analysis, 
     display_all_feature_impacts, display_recommendations,
-    display_metrics, create_trend_chart, call_and_display_agents
+    display_metrics, create_trend_chart, call_and_display_agents,
+    display_enhanced_feature_impacts
 )
 from styles import get_prediction_box_html
 
 def show(model, X_processed, y, feature_cols, explainer, label_encoders, X_original):
     """Display the single customer analysis page"""
     
-    st.title("👤 Single Customer Churn Analysis")
+    st.title("👤 Customer Analysis")
     st.markdown("""
     Analyze individual customers to understand their churn risk and the key factors driving their behavior.
-    Select a customer from the dataset or input custom details.
     """)
     
-    # Customer selection sidebar
-    with st.sidebar:
-        st.markdown("---")
-        st.header("🔍 Customer Selection")
+    # Customer selection tabs at the top
+    st.markdown("### 🔍 Customer Selection Mode")
+    
+    # Use Streamlit's built-in tabs for proper state management
+    tab1, tab2 = st.tabs(["📊 Select Real Customer", "⚙️ Custom Feature Selection"])
+    
+    # Initialize variables
+    sample_customer = None
+    actual_churn = None
+    customer_id = None
+    
+    with tab1:
+        st.markdown("Select a customer from the dataset by their index.")
+        # Get customer data for real customer selection
+        sample_customer, actual_churn, customer_id = get_customer_by_mode(
+            'Select Real Customer', X_processed, y, feature_cols, X_original, label_encoders
+        )
         
-        # Mode selection
-        input_mode = st.radio(
-            "Choose Input Mode:",
-            ["Select Real Customer", "Random Customer", "Top 10 Most Important Features"],
-            help="Choose how to select a customer for analysis"
+    with tab2:
+        st.markdown("Create a custom customer profile by adjusting key features.")
+        # Get customer data for custom feature selection
+        sample_customer, actual_churn, customer_id = get_customer_by_mode(
+            'Custom Feature Selection', X_processed, y, feature_cols, X_original, label_encoders
         )
     
-    # Get customer data based on selected mode
-    sample_customer, actual_churn, customer_id = get_customer_by_mode(
-        input_mode, X_processed, y, feature_cols, X_original, label_encoders
-    )
+    # Only proceed if we have customer data
+    if sample_customer is None:
+        st.stop()
+    
+    st.markdown("---")
     
     # Make prediction using the real model
     prediction, probability = make_prediction(model, sample_customer)
@@ -78,37 +92,74 @@ def show(model, X_processed, y, feature_cols, explainer, label_encoders, X_origi
         fig_gauge = create_gauge_chart(probability)
         st.plotly_chart(fig_gauge, use_container_width=True)
     
-    # Feature Importance Section
+    # Feature Importance Section - Full width
     st.markdown("---")
     st.markdown("## 🔍 Why This Prediction?")
     st.markdown("### Key Drivers for This Customer's Churn Risk")
     
-    col3, col4 = st.columns([3, 2])
+    # Create feature impact chart - Full width
+    fig_features = create_feature_impact_chart(features_dict)
+    st.plotly_chart(fig_features, use_container_width=True)
     
-    with col3:
-        # Create feature impact chart
-        fig_features = create_feature_impact_chart(features_dict)
-        st.plotly_chart(fig_features, use_container_width=True)
-        
-        st.markdown("""
-        **How to Read This Chart:**
-        - 🔴 **Red bars (positive values)**: Features pushing toward higher churn risk
-        - 🔵 **Blue bars (negative values)**: Features reducing churn risk
-        - **Bar length**: Indicates the strength of impact
-        """)
+    st.markdown("""
+    **How to Read This Chart:**
+    - 🔴 **Red bars (positive values)**: Features pushing toward higher churn risk
+    - 🔵 **Blue bars (negative values)**: Features reducing churn risk
+    - **Bar length**: Indicates the strength of impact
+    """)
     
-    with col4:
-        # Display SHAP analysis
-        display_shap_analysis(
-            positive_contribs, negative_contribs, explainer, shap_values, 
-            model, sample_customer, prediction, actual_churn
-        )
-        
-        # Display all feature impacts
-        display_all_feature_impacts(features_dict)
-        
-        # Display recommendations
-        display_recommendations(probability)
+    # SHAP Analysis Results - Side by side comparison
+    st.markdown("---")
+    st.markdown("## 📈 SHAP Analysis Results")
+    
+    col_left, col_right = st.columns(2)
+    
+    with col_left:
+        st.markdown("### 🔴 Top 5 Driving TOWARDS CHURN")
+        for i, contrib in enumerate(positive_contribs, 1):
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%); 
+                        padding: 12px; border-radius: 8px; margin-bottom: 8px; color: white;">
+                <strong>{i}. {contrib['Feature']}</strong><br>
+                <small>SHAP Impact: {contrib['SHAP_Value']:+.4f} | Value: {contrib['Value']:.3f}</small>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col_right:
+        st.markdown("### 🟢 Top 5 Driving TOWARDS RETENTION")
+        for i, contrib in enumerate(negative_contribs, 1):
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%); 
+                        padding: 12px; border-radius: 8px; margin-bottom: 8px; color: white;">
+                <strong>{i}. {contrib['Feature']}</strong><br>
+                <small>SHAP Impact: {contrib['SHAP_Value']:+.4f} | Value: {contrib['Value']:.3f}</small>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Enhanced All Feature Impacts Section
+    st.markdown("---")
+    st.markdown("## 📋 Complete Feature Impact Analysis")
+    
+    # Create a better visualization for all features
+    display_enhanced_feature_impacts(features_dict)
+    
+    # SHAP Summary and Model Performance
+    col_summary1, col_summary2, col_summary3 = st.columns(3)
+    
+    with col_summary1:
+        base_value = explainer.expected_value
+        st.metric("SHAP Base Value", f"{base_value:.4f}")
+    
+    with col_summary2:
+        shap_sum = np.sum(shap_values[0])
+        st.metric("SHAP Sum", f"{shap_sum:+.4f}")
+    
+    with col_summary3:
+        confidence = max(model.predict_proba(sample_customer)[0])
+        st.metric("Model Confidence", f"{confidence:.1%}")
+    
+    # Recommendations
+    display_recommendations(probability)
     
     # AI Agent Analysis Section
     st.markdown("---")
@@ -172,20 +223,6 @@ def show(model, X_processed, y, feature_cols, explainer, label_encoders, X_origi
         model, sample_customer, X_original, feature_cols, 
         explainer, probability, feature_contributions
     )
-    
-    # Bottom section with additional insights
-    st.markdown("---")
-    st.markdown("## 📊 Additional Insights")
-    
-    # Display metrics
-    display_metrics(probability, model, sample_customer)
-    
-    # Interactive timeline or trend (mock data)
-    st.markdown("### 📈 Churn Risk Trend (Last 6 Months)")
-    
-    months, trend_values = generate_trend_data(probability)
-    fig_trend = create_trend_chart(months, trend_values)
-    st.plotly_chart(fig_trend, use_container_width=True)
 
 
 def display_whatif_planner(model, sample_customer, X_original, feature_cols, 
@@ -326,115 +363,124 @@ def display_custom_adjustments(model, modified_customer, actionable_features,
                                baseline_probability, explainer, feature_cols):
     """Display custom adjustment controls"""
     
-    st.markdown("#### Adjust Key Features")
-    st.caption("Move sliders to test different intervention strategies")
+    # Create main layout: adjustment controls on left, impact analysis on right
+    adj_col, impact_col = st.columns([1, 2])
     
-    # Create columns for sliders
-    adjustments = {}
-    changes_made = False
-    
-    for i, feature in enumerate(actionable_features[:6]):  # Limit to top 6
-        col1, col2 = st.columns([3, 1])
+    with adj_col:
+        st.markdown("#### 🎛️ Adjust Key Features")
+        st.caption("Move sliders to test interventions")
         
-        with col1:
+        # Create adjustments in a more compact format
+        adjustments = {}
+        changes_made = False
+        
+        for i, feature in enumerate(actionable_features[:5]):  # Limit to top 5 for compactness
             # Create slider with step size
             step_size = (feature['max_value'] - feature['min_value']) / 100
             if step_size == 0:
                 step_size = 0.01
             
             new_value = st.slider(
-                f"**{feature['name']}**",
+                f"**{feature['name'][:15]}...**" if len(feature['name']) > 15 else f"**{feature['name']}**",
                 min_value=feature['min_value'],
                 max_value=feature['max_value'],
                 value=feature['current_value'],
                 step=step_size,
                 key=f"slider_{feature['name']}",
-                help=f"Original: {feature['current_value']:.2f} | Range: {feature['min_value']:.1f} - {feature['max_value']:.1f}"
+                help=f"Original: {feature['current_value']:.2f}"
             )
             
             adjustments[feature['name']] = new_value
             
             if abs(new_value - feature['current_value']) > 0.01:
                 changes_made = True
-        
-        with col2:
-            # Show change amount (not percentage when going to negative)
-            change_amount = new_value - feature['current_value']
-            if feature['current_value'] != 0:
-                change_pct = (change_amount / abs(feature['current_value']) * 100)
-            else:
-                change_pct = 0
             
-            # Display change amount clearly
-            st.metric(
-                "Adjustment",
-                f"{change_amount:+.2f}",
-                delta=f"{change_pct:+.1f}%" if abs(feature['current_value']) > 0.01 else "N/A"
-            )
+            # Show change inline
+            change_amount = new_value - feature['current_value']
+            if abs(change_amount) > 0.01:
+                change_color = "🔴" if change_amount > 0 else "🟢"
+                st.caption(f"{change_color} Change: {change_amount:+.2f}")
+            else:
+                st.caption("⚪ No change")
     
-    if changes_made:
-        # Apply adjustments
-        for feature_name, new_value in adjustments.items():
-            feature_idx = modified_customer.columns.get_loc(feature_name)
-            modified_customer.iloc[0, feature_idx] = new_value
+    with impact_col:
+        st.markdown("#### 📊 Impact Analysis")
         
-        # Recalculate prediction
-        new_prediction, new_probability = make_prediction(model, modified_customer)
-        
-        # Calculate impact
-        probability_change = new_probability - baseline_probability
-        risk_reduction_pct_points = -probability_change * 100  # Percentage points
-        
-        # Display results
-        st.markdown("---")
-        st.markdown("### 📊 Impact Analysis")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                "Original Risk",
-                f"{baseline_probability*100:.1f}%",
-                help="Baseline churn probability before changes"
+        if changes_made:
+            # Apply adjustments
+            for feature_name, new_value in adjustments.items():
+                feature_idx = modified_customer.columns.get_loc(feature_name)
+                modified_customer.iloc[0, feature_idx] = new_value
+            
+            # Recalculate prediction
+            new_prediction, new_probability = make_prediction(model, modified_customer)
+            
+            # Calculate impact
+            probability_change = new_probability - baseline_probability
+            risk_reduction_pct_points = -probability_change * 100  # Percentage points
+            
+            # Display results in a nicer format
+            result_col1, result_col2 = st.columns(2)
+            
+            with result_col1:
+                st.metric(
+                    "Original Risk",
+                    f"{baseline_probability*100:.1f}%",
+                    help="Baseline churn probability"
+                )
+                
+                old_level = get_risk_level(baseline_probability)[0]
+                st.metric(
+                    "Risk Level",
+                    old_level,
+                    help="Original risk category"
+                )
+            
+            with result_col2:
+                st.metric(
+                    "New Risk",
+                    f"{new_probability*100:.1f}%",
+                    delta=f"{probability_change*100:.1f} pts",
+                    delta_color="inverse",
+                    help="New churn probability after intervention"
+                )
+                
+                new_level = get_risk_level(new_probability)[0]
+                level_change = f"→ {new_level}" if old_level != new_level else "No change"
+                st.metric(
+                    "New Level",
+                    new_level,
+                    delta=level_change,
+                    help="New risk category"
+                )
+            
+            # Show overall impact
+            if probability_change < 0:
+                st.success(f"✅ **Risk Reduced by {abs(probability_change)*100:.1f} percentage points**")
+                effectiveness = "High" if abs(probability_change) > 0.1 else "Medium" if abs(probability_change) > 0.05 else "Low" 
+                st.info(f"**Intervention Effectiveness:** {effectiveness}")
+            elif probability_change > 0:
+                st.error(f"❌ **Risk Increased by {probability_change*100:.1f} percentage points**")
+            else:
+                st.warning("⚡ **No significant impact detected**")
+            
+            # Visualization
+            display_scenario_comparison(baseline_probability, new_probability, adjustments, actionable_features)
+            
+            # AI-powered recommendations
+            generate_intervention_recommendations(
+                adjustments, actionable_features, probability_change, new_probability
             )
+        else:
+            st.info("👆 **Adjust the sliders above to see the impact analysis**")
+            st.markdown("""
+            **Available Features to Adjust:**
+            """)
+            for feature in actionable_features[:5]:
+                impact_dir = "↗️ Increases" if feature['shap_value'] > 0 else "↘️ Decreases"
+                st.caption(f"• **{feature['name']}**: {impact_dir} churn risk")
         
-        with col2:
-            st.metric(
-                "New Risk",
-                f"{new_probability*100:.1f}%",
-                delta=f"{probability_change*100:.1f} pts",
-                delta_color="inverse",
-                help="New churn probability after intervention"
-            )
-        
-        with col3:
-            old_level = get_risk_level(baseline_probability)[0]
-            new_level = get_risk_level(new_probability)[0]
-            level_change = "→ " + new_level if old_level != new_level else "Same"
-            st.metric(
-                "Risk Level",
-                old_level,
-                delta=level_change,
-                help="Risk category before intervention"
-            )
-        
-        with col4:
-            # Show absolute change in percentage points
-            st.metric(
-                "Change",
-                f"{abs(risk_reduction_pct_points):.1f} pts",
-                delta="↓ Better" if risk_reduction_pct_points > 0 else "↑ Worse",
-                delta_color="normal" if risk_reduction_pct_points > 0 else "inverse",
-                help="Change in churn risk (percentage points)"
-            )
-        
-        # Visualization
-        display_scenario_comparison(baseline_probability, new_probability, adjustments, actionable_features)
-        
-        # AI-powered recommendations
-        generate_intervention_recommendations(
-            adjustments, actionable_features, probability_change, new_probability
-        )
+        return
 
 
 def display_predefined_scenarios(model, modified_customer, actionable_features, 

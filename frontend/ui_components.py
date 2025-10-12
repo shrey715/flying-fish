@@ -7,25 +7,13 @@ import numpy as np
 import plotly.graph_objects as go
 from styles import get_feature_impact_style
 
-def create_sidebar(X_processed, y, feature_cols):
-    """Create and populate the sidebar"""
+def create_sidebar_stats(X_processed, y, feature_cols):
+    """Create sidebar with dataset statistics only"""
     with st.sidebar:
-        st.header("🔍 Customer Selection")
-        
-        # Mode selection
-        input_mode = st.radio(
-            "Choose Input Mode:",
-            ["Select Real Customer", "Random Customer", "Top 10 Most Important Features"],
-            help="Choose how to select a customer for analysis"
-        )
-        
-        st.markdown("---")
-        st.markdown("### 📊 Dataset Stats")
+        st.markdown("### 📊 Dataset Statistics")
         st.metric("Total Customers", f"{len(X_processed):,}")
         st.metric("Avg Churn Rate", f"{y.mean()*100:.1f}%")
         st.metric("Features Used", len(feature_cols))
-        
-        return input_mode
 
 def display_customer_profile(customer_id, feature_contributions, actual_churn):
     """Display customer profile information"""
@@ -179,6 +167,43 @@ def display_all_feature_impacts(features):
             <small>{impact}</small>
         </div>
         """, unsafe_allow_html=True)
+
+def display_enhanced_feature_impacts(features_dict):
+    """Display feature impacts in an enhanced table format"""
+    # Sort features by absolute impact
+    sorted_features = sorted(features_dict.items(), key=lambda x: abs(x[1]), reverse=True)
+    
+    # Create a more organized display
+    st.markdown("""
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin: 10px 0;">
+        <h4 style="margin-bottom: 15px; color: #2c3e50;">📊 Complete Feature Analysis</h4>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Create columns for better organization
+    cols = st.columns(2)
+    
+    for i, (feature, value) in enumerate(sorted_features):
+        col_idx = i % 2
+        impact_direction = "Increases Risk" if value > 0 else "Decreases Risk"
+        color = "#ff6b6b" if value > 0 else "#4ecdc4"
+        icon = "⬆️" if value > 0 else "⬇️"
+        
+        with cols[col_idx]:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, {color}15 0%, {color}25 100%); 
+                        padding: 15px; border-radius: 8px; margin-bottom: 10px; 
+                        border-left: 4px solid {color};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong style="color: #2c3e50; font-size: 14px;">{icon} {feature}</strong>
+                    <span style="background-color: {color}; color: white; padding: 4px 8px; 
+                                border-radius: 12px; font-size: 12px; font-weight: bold;">
+                        {value:+.4f}
+                    </span>
+                </div>
+                <small style="color: #666; font-style: italic;">{impact_direction}</small>
+            </div>
+            """, unsafe_allow_html=True)
 
 def display_recommendations(churn_prob):
     """Display recommendations based on churn probability"""

@@ -119,21 +119,7 @@ def get_customer_by_mode(input_mode, X_processed, y, feature_cols, X_original, l
         customer_id = f"REAL_{customer_idx:04d}"
         return sample_customer, actual_churn, customer_id
         
-    elif input_mode == "Random Customer":
-        # Random selection
-        if st.button("🎲 Pick Random Customer", key="random_btn"):
-            st.session_state.random_idx = np.random.choice(len(X_processed))
-        
-        if 'random_idx' not in st.session_state:
-            st.session_state.random_idx = 123
-            
-        customer_idx = st.session_state.random_idx
-        sample_customer = X_processed.iloc[customer_idx:customer_idx+1]
-        actual_churn = y.iloc[customer_idx]
-        customer_id = f"RAND_{customer_idx:04d}"
-        return sample_customer, actual_churn, customer_id
-        
-    else:  # Top 10 Most Important Features
+    else:  # Custom Feature Selection
         from model_operations import get_important_features, create_sample_customer_from_inputs
         
         st.markdown("### Enter Key Feature Values")

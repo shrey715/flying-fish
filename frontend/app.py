@@ -14,7 +14,7 @@ from model_operations import (
 )
 from data_operations import get_customer_by_mode, generate_trend_data
 from ui_components import (
-    create_sidebar, display_customer_profile, create_gauge_chart,
+    create_sidebar_stats, display_customer_profile, create_gauge_chart,
     create_feature_impact_chart, display_shap_analysis, 
     display_all_feature_impacts, display_recommendations,
     display_metrics, create_trend_chart
@@ -42,11 +42,44 @@ if model is None:
 st.title("🎯 Customer Churn Prediction Dashboard")
 st.markdown("""
 This interactive dashboard uses a **real XGBoost model** to predict customer churn and provides **SHAP explanations** 
-for why customers might leave. Select a real customer from the dataset or input custom details to see predictions.
+for why customers might leave.
 """)
 
-# Create sidebar and get input mode
-input_mode = create_sidebar(X_processed, y, feature_cols)
+# Customer selection tabs at the top
+st.markdown("### 🔍 Customer Selection Mode")
+
+col1, col2 = st.columns(2)
+with col1:
+    real_customer_btn = st.button("📊 Select Real Customer", use_container_width=True, 
+                                type="primary" if st.session_state.get('customer_mode', 'Select Real Customer') == 'Select Real Customer' else "secondary")
+    if real_customer_btn:
+        st.session_state.customer_mode = 'Select Real Customer'
+
+with col2:
+    custom_features_btn = st.button("⚙️ Custom Feature Selection", use_container_width=True,
+                                  type="primary" if st.session_state.get('customer_mode', 'Select Real Customer') == 'Custom Feature Selection' else "secondary")
+    if custom_features_btn:
+        st.session_state.customer_mode = 'Custom Feature Selection'
+
+# Set default mode if not set
+if 'customer_mode' not in st.session_state:
+    st.session_state.customer_mode = 'Select Real Customer'
+
+input_mode = st.session_state.customer_mode
+
+st.markdown("---")
+
+# Display dataset stats at the top
+st.markdown("### 📊 Dataset Statistics")
+col_stat1, col_stat2, col_stat3 = st.columns(3)
+with col_stat1:
+    st.metric("Total Customers", f"{len(X_processed):,}")
+with col_stat2:
+    st.metric("Avg Churn Rate", f"{y.mean()*100:.1f}%")
+with col_stat3:
+    st.metric("Features Used", len(feature_cols))
+
+st.markdown("---")
 
 # Get customer data based on selected mode
 sample_customer, actual_churn, customer_id = get_customer_by_mode(
