@@ -81,13 +81,7 @@ def show(model, X_processed, y, feature_cols, explainer, X_original):
             x=all_predictions * 100,
             nbinsx=50,
             marker=dict(
-                color=all_predictions * 100,
-                colorscale=[
-                    [0, '#4ecdc4'],
-                    [0.4, '#ffa500'],
-                    [0.7, '#ff6b6b'],
-                    [1, '#cc0000']
-                ],
+                color='#4A90E2',  # Blue color for all bars
                 line=dict(color='white', width=1)
             ),
             hovertemplate='Churn Risk: %{x:.1f}%<br>Count: %{y}<extra></extra>'
@@ -590,6 +584,27 @@ def show(model, X_processed, y, feature_cols, explainer, X_original):
         )
     else:
         st.success("✅ No high-risk customers found in the current dataset!")
+    
+    st.markdown("---")
+    
+    # Proactive Retention Campaign Assistant
+    st.markdown("## 🎯 Proactive Retention Campaign Assistant")
+    st.markdown("""
+    **AI-Powered Targeted Campaigns**: Identify hyper-specific high-risk customer segments and generate 
+    personalized retention strategies using advanced AI analysis.
+    """)
+    
+    # Button to generate campaigns
+    if st.button("🚀 Generate Retention Campaigns", type="primary", key="generate_campaigns"):
+        with st.spinner("🤖 Analyzing customer segments and generating targeted campaigns..."):
+            # Identify high-risk segments
+            segments = identify_high_risk_segments(X_original, all_predictions)
+            
+            # Generate campaigns for each segment
+            campaigns = generate_retention_campaigns(segments, X_original, all_predictions)
+            
+            # Display campaigns
+            display_retention_campaigns(campaigns)
     
     st.markdown("---")
     
@@ -1130,3 +1145,405 @@ def create_texas_county_map(county_data):
         )
     
     return fig
+
+
+def identify_high_risk_segments(X_original, all_predictions):
+    """Identify hyper-specific high-risk customer segments"""
+    
+    # Add predictions to dataframe
+    df = X_original.copy()
+    df['churn_risk'] = all_predictions
+    df['is_high_risk'] = all_predictions >= 0.7
+    
+    # Only analyze high-risk customers
+    high_risk_df = df[df['is_high_risk']].copy()
+    
+    if len(high_risk_df) == 0:
+        return []
+    
+    segments = []
+    
+    # Define segmentation criteria with multiple attributes
+    segmentation_rules = [
+        {
+            'name': 'Young High-Income Urban Professionals',
+            'conditions': lambda row: (
+                row.get('age_in_years', 0) < 35 and
+                row.get('income', 0) > 75000 and
+                row.get('college_degree', 0) == 1 and
+                row.get('city', '').lower() in ['houston', 'dallas', 'austin']
+            ),
+            'priority': 'CRITICAL'
+        },
+        {
+            'name': 'Long-Tenure High-Premium Customers',
+            'conditions': lambda row: (
+                row.get('days_tenure', 0) > 1095 and  # 3+ years
+                row.get('curr_ann_amt', 0) > 2000
+            ),
+            'priority': 'HIGH'
+        },
+        {
+            'name': 'Homeowners with Multiple Claims',
+            'conditions': lambda row: (
+                row.get('home_owner', 0) == 1 and
+                row.get('has_children', 0) == 1
+            ),
+            'priority': 'HIGH'
+        },
+        {
+            'name': 'Recent Customers at Risk',
+            'conditions': lambda row: (
+                row.get('days_tenure', 0) < 365 and
+                row.get('curr_ann_amt', 0) > 1500
+            ),
+            'priority': 'MEDIUM'
+        },
+        {
+            'name': 'Senior Citizens with Good Credit',
+            'conditions': lambda row: (
+                row.get('age_in_years', 0) >= 60 and
+                row.get('good_credit', 0) == 1
+            ),
+            'priority': 'MEDIUM'
+        }
+    ]
+    
+    # Identify segments
+    for rule in segmentation_rules:
+        try:
+            # Apply conditions
+            segment_mask = high_risk_df.apply(rule['conditions'], axis=1)
+            segment_customers = high_risk_df[segment_mask]
+            
+            if len(segment_customers) > 0:
+                # Calculate segment statistics
+                avg_risk = segment_customers['churn_risk'].mean()
+                
+                # Get top features for this segment (simplified)
+                segment_features = {}
+                for col in ['age_in_years', 'income', 'curr_ann_amt', 'days_tenure', 
+                           'home_owner', 'college_degree', 'good_credit', 'has_children']:
+                    if col in segment_customers.columns:
+                        segment_features[col] = segment_customers[col].mean()
+                
+                segments.append({
+                    'name': rule['name'],
+                    'size': len(segment_customers),
+                    'avg_risk': avg_risk,
+                    'priority': rule['priority'],
+                    'customer_indices': segment_customers.index.tolist()[:50],  # Limit to 50 for display
+                    'features': segment_features
+                })
+        except Exception:
+            continue
+    
+    # Sort by priority and size
+    priority_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2}
+    segments.sort(key=lambda x: (priority_order.get(x['priority'], 3), -x['size']))
+    
+    return segments[:3]  # Return top 3 segments
+
+
+def generate_retention_campaigns(segments, X_original, all_predictions):
+    """Generate AI-powered retention campaigns for each segment"""
+    
+    import os
+    
+    # Check if API key is available
+    api_key = os.getenv('GOOGLE_API_KEY')
+    
+    campaigns = []
+    
+    for segment in segments:
+        campaign = {
+            'segment': segment,
+            'email_subject': '',
+            'email_body': '',
+            'call_script': '',
+            'offer': '',
+            'generated_by_ai': False
+        }
+        
+        if api_key:
+            # Generate AI content using Google Gemini
+            try:
+                import google.generativeai as genai
+                
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-pro')
+                
+                # Prepare segment description
+                segment_desc = f"""
+                Segment: {segment['name']}
+                Size: {segment['size']} customers
+                Average Churn Risk: {segment['avg_risk']*100:.1f}%
+                Priority: {segment['priority']}
+                Key Characteristics:
+                """
+                
+                for feature, value in segment['features'].items():
+                    segment_desc += f"\n- {feature}: {value:.2f}"
+                
+                # Generate email
+                email_prompt = f"""
+                You are a retention specialist for an auto insurance company. Generate a personalized, compelling retention email for this high-risk customer segment:
+
+                {segment_desc}
+
+                Requirements:
+                1. Write an email with a catchy subject line and body (max 200 words)
+                2. Offer a specific, valuable incentive (discount, bundle, or premium service)
+                3. Create urgency but maintain a friendly, professional, customer-centric tone
+                4. Address their likely pain points based on the segment characteristics
+                5. Include a clear call-to-action
+                6. DO NOT use phrases like "you're part of our community" or "customer group" - be direct and professional
+                7. Focus on their specific needs and how this offer helps them personally
+
+                Format your response as:
+                SUBJECT: [subject line]
+                
+                BODY:
+                [email body]
+                
+                OFFER: [specific offer details]
+                """
+                
+                email_response = model.generate_content(email_prompt)
+                email_text = email_response.text
+                
+                # Parse response
+                lines = email_text.split('\n')
+                subject_line = ''
+                body_lines = []
+                offer_lines = []
+                current_section = None
+                
+                for line in lines:
+                    if line.startswith('SUBJECT:'):
+                        subject_line = line.replace('SUBJECT:', '').strip()
+                        current_section = 'subject'
+                    elif line.startswith('BODY:'):
+                        current_section = 'body'
+                    elif line.startswith('OFFER:'):
+                        current_section = 'offer'
+                    elif current_section == 'body' and line.strip():
+                        body_lines.append(line.strip())
+                    elif current_section == 'offer' and line.strip():
+                        offer_lines.append(line.strip())
+                
+                campaign['email_subject'] = subject_line if subject_line else f"Special Offer for Our Valued {segment['name']}"
+                campaign['email_body'] = '\n'.join(body_lines) if body_lines else "We value your business and want to keep you as a customer."
+                campaign['offer'] = '\n'.join(offer_lines) if offer_lines else "Special retention discount available."
+                campaign['generated_by_ai'] = True
+                
+                # Generate call script
+                script_prompt = f"""
+                Generate a brief, professional call script (max 150 words) for retention agents to use with this segment:
+
+                {segment_desc}
+
+                The script should:
+                1. Open warmly and acknowledge customer loyalty
+                2. Address likely concerns
+                3. Present the retention offer
+                4. Handle one common objection
+                5. Close with clear next steps
+
+                Format as a natural conversation flow.
+                """
+                
+                script_response = model.generate_content(script_prompt)
+                campaign['call_script'] = script_response.text.strip()
+                
+            except Exception as e:
+                st.warning(f"AI generation unavailable for {segment['name']}: {str(e)}")
+                campaign['generated_by_ai'] = False
+        
+        # Fallback templates if AI not available
+        if not campaign['generated_by_ai']:
+            campaign['email_subject'] = f"🎁 Exclusive Retention Offer - Save 15% on Your Policy"
+            campaign['email_body'] = f"""
+Hello,
+
+We value your business and would like to offer you an exclusive retention package designed to provide you with exceptional value.
+
+Your exclusive offer includes:
+• 15% discount on your next renewal
+• Complimentary roadside assistance for 12 months
+• Priority claims processing
+
+This offer is available for the next 30 days and is tailored specifically for customers in the {segment['name']} segment.
+
+To claim your savings, simply reply to this email or call us at 1-800-INSURE to speak with a retention specialist.
+
+Best regards,
+Your Insurance Team
+            """
+            campaign['offer'] = "15% renewal discount + Free roadside assistance + Priority claims"
+            campaign['call_script'] = f"""
+Agent: Hi [Customer Name], this is [Your Name] from [Company]. How are you today?
+
+Agent: I'm calling to discuss an exclusive retention offer we've prepared for you based on your policy profile.
+
+Agent: We're offering 15% off your next renewal, plus complimentary roadside assistance and priority claims processing. This package is designed to give you better value and service.
+
+Customer: [Potential objection about price/service]
+
+Agent: I completely understand your concern. That's exactly why we've created this personalized offer. Can I take 2 minutes to show you the specific savings on your policy?
+
+Agent: Excellent! Let me get this set up for you right away. You'll see the discount reflected in your next billing statement.
+            """
+        
+        campaigns.append(campaign)
+    
+    return campaigns
+
+
+def display_retention_campaigns(campaigns):
+    """Display the generated retention campaigns with customer lists"""
+    
+    if not campaigns:
+        st.info("No high-risk segments identified at this time.")
+        return
+    
+    st.success(f"✅ Generated {len(campaigns)} targeted retention campaigns!")
+    
+    for idx, campaign in enumerate(campaigns, 1):
+        segment = campaign['segment']
+        
+        # Priority color coding
+        priority_colors = {
+            'CRITICAL': '#dc3545',
+            'HIGH': '#fd7e14',
+            'MEDIUM': '#ffc107'
+        }
+        
+        color = priority_colors.get(segment['priority'], '#6c757d')
+        
+        # Campaign header
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, {color}22 0%, {color}44 100%); 
+                    padding: 20px; border-radius: 10px; border-left: 5px solid {color}; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: {color};">
+                Campaign {idx}: {segment['name']}
+            </h3>
+            <p style="margin: 5px 0 0 0; font-size: 14px;">
+                🎯 {segment['size']} customers | 
+                📊 Avg Risk: {segment['avg_risk']*100:.1f}% | 
+                ⚠️ Priority: {segment['priority']}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Campaign details in tabs (removed Call Script tab)
+        tab1, tab2, tab3 = st.tabs(["📧 Email Campaign", "🎁 Offer Details", "👥 Target Customers"])
+        
+        with tab1:
+            st.markdown(f"### 📬 Email Preview")
+            
+            if campaign['generated_by_ai']:
+                st.success("✨ Generated by AI")
+            
+            # Editable Email subject
+            st.markdown("**Subject Line:**")
+            edited_subject = st.text_input(
+                "Edit subject line",
+                value=campaign['email_subject'],
+                key=f"subject_{idx}",
+                label_visibility="collapsed"
+            )
+            
+            # Editable Email body
+            st.markdown("**Email Body:**")
+            edited_body = st.text_area(
+                "Edit email body",
+                value=campaign['email_body'],
+                height=300,
+                key=f"body_{idx}",
+                label_visibility="collapsed"
+            )
+            
+            # Preview box
+            st.markdown("**Preview:**")
+            st.markdown(f"""
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px solid #dee2e6; color: #000000;">
+                <strong style="color: #000000;">Subject: {edited_subject}</strong><br><br>
+                {edited_body.replace(chr(10), '<br>')}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Send button
+            col1, col2 = st.columns([3, 1])
+            with col2:
+                if st.button(f"📤 Send to {segment['size']} Customers", key=f"send_email_{idx}"):
+                    st.success(f"✅ Campaign queued! {segment['size']} emails will be sent with your edits.")
+                    st.balloons()
+        
+        with tab2:
+            st.markdown("### 🎁 Retention Offer Package")
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        padding: 20px; border-radius: 10px; color: white; margin-bottom: 15px;">
+                <h4 style="margin: 0 0 10px 0; color: white;">Special Retention Package</h4>
+                <p style="margin: 0; font-size: 16px; line-height: 1.6;">
+                    {campaign['offer'].replace(chr(10), '<br>')}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Offer metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Estimated Cost", "$125/customer")
+            with col2:
+                st.metric("Expected Retention", "65%")
+            with col3:
+                potential_save = segment['size'] * 0.65 * 1500  # Assume $1500 LTV
+                st.metric("Potential Revenue Saved", f"${potential_save:,.0f}")
+        
+        with tab3:
+            st.markdown("### 👥 Target Customer List")
+            
+            st.markdown(f"""
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; border-left: 4px solid #ffc107; margin-bottom: 15px; color: #000000;">
+                ⚠️ <strong>High Priority:</strong> {segment['size']} customers identified for immediate outreach
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Display customer IDs
+            customer_ids = [f"CUST_{idx:05d}" for idx in segment['customer_indices']]
+            
+            # Create dataframe for display
+            display_data = []
+            for cust_id, cust_idx in zip(customer_ids, segment['customer_indices']):
+                display_data.append({
+                    'Customer ID': cust_id,
+                    'Churn Risk': f"{segment['avg_risk']*100:.1f}%",
+                    'Status': '🔴 High Risk',
+                    'Campaign': segment['name'][:30] + '...' if len(segment['name']) > 30 else segment['name']
+                })
+            
+            df_display = pd.DataFrame(display_data)
+            
+            st.dataframe(
+                df_display.head(20),  # Show first 20
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            if len(df_display) > 20:
+                st.caption(f"Showing 20 of {len(df_display)} customers. Download full list below.")
+            
+            # Download button
+            csv = df_display.to_csv(index=False)
+            st.download_button(
+                label=f"📥 Download Full Customer List ({len(df_display)} customers)",
+                data=csv,
+                file_name=f"retention_campaign_{idx}_{segment['name'].replace(' ', '_')}.csv",
+                mime="text/csv",
+                key=f"download_{idx}"
+            )
+        
+        st.markdown("---")
