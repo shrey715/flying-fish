@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: flying-fish-backend
+    ports:
+      - "8001:8001"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/app/backend
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - flying-fish-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: flying-fish-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8001
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./frontend:/app/frontend
+      - ./models:/app/models
+      - ./data:/app/data
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - flying-fish-network
+
+networks:
+  flying-fish-network:
+    driver: bridge
