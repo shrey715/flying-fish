@@ -1,4 +1,4 @@
-# 🐟 Flying Fish - AI-Powered Customer Churn Prediction System
+# ChurnSense-AI - AI-Powered Customer Churn Prediction System
 
 **An intelligent customer retention platform that predicts churn with explainable AI and provides actionable insights through an interactive dashboard.**
 
@@ -9,8 +9,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/shrey715/flying-fish.git
-cd flying-fish
+git clone https://github.com/Abhi-1122/ChurnSense-AI.git
+cd ChurnSense-AI
 
 export GOOGLE_API_KEY="your_google_api_key_here"
 ```
@@ -121,7 +121,7 @@ A sophisticated web interface with three specialized views:
 ## 🗂️ Project Structure
 
 ```
-flying-fish/
+ChurnSense-AI/
 ├── 🔧 Backend API
 │   ├── main.py             # FastAPI application
 │   ├── workflow.py         # AI agent orchestration
